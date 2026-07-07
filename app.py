@@ -26,7 +26,8 @@ USE_POSTGRES = bool(DATABASE_URL)
 
 if USE_POSTGRES:
     import psycopg
-    import psycopg.extras
+    from psycopg.rows import dict_row  # Changed: replaces RealDictCursor
+    # psycopg 3 doesn't have extras module
     IntegrityError = psycopg.IntegrityError
 else:
     IntegrityError = sqlite3.IntegrityError
@@ -56,7 +57,7 @@ SHEETS_TO_IGNORE = {"summary", "index", "readme", "cover"}
 # (execute/executescript/commit/close) regardless of whether the backend is
 # SQLite (local dev) or Postgres (production, e.g. Neon). "?" placeholders
 # are translated to "%s" for Postgres. Rows behave like dicts either way
-# (sqlite3.Row / psycopg RealDictCursor), so `row["col"]` and `dict(row)`
+# (sqlite3.Row / psycopg dict_row), so `row["col"]` and `dict(row)`
 # both work unchanged everywhere else in this file.
 # ---------------------------------------------------------------------------
 class DBWrapper:
@@ -66,7 +67,8 @@ class DBWrapper:
     def execute(self, sql, params=()):
         if USE_POSTGRES:
             sql = sql.replace("?", "%s")
-            cur = self._conn.cursor(cursor_factory=psycopg.extras.RealDictCursor)
+            # Changed: use dict_row instead of RealDictCursor
+            cur = self._conn.cursor(row_factory=dict_row)
             cur.execute(sql, params)
             return cur
         return self._conn.execute(sql, params)
@@ -270,13 +272,23 @@ def import_workbook(filepath):
                 auto_roll = roll_no
 
             try:
-                row = db.execute(
-                    "INSERT INTO students (class_name, section, roll_no, name, "
-                    "notebook, project, updated_at) VALUES (?, ?, ?, ?, 0, 0, ?) "
-                    "ON CONFLICT (class_name, section, roll_no, name) DO NOTHING "
-                    "RETURNING id",
-                    (class_name, section, roll_no, name_val, datetime.now().isoformat()),
-                ).fetchone()
+                # Fixed: ON CONFLICT syntax for Postgres with RETURNING
+                if USE_POSTGRES:
+                    row = db.execute(
+                        "INSERT INTO students (class_name, section, roll_no, name, "
+                        "notebook, project, updated_at) VALUES (%s, %s, %s, %s, 0, 0, %s) "
+                        "ON CONFLICT (class_name, section, roll_no, name) DO NOTHING "
+                        "RETURNING id",
+                        (class_name, section, roll_no, name_val, datetime.now().isoformat()),
+                    ).fetchone()
+                else:
+                    row = db.execute(
+                        "INSERT INTO students (class_name, section, roll_no, name, "
+                        "notebook, project, updated_at) VALUES (?, ?, ?, ?, 0, 0, ?) "
+                        "ON CONFLICT (class_name, section, roll_no, name) DO NOTHING "
+                        "RETURNING id",
+                        (class_name, section, roll_no, name_val, datetime.now().isoformat()),
+                    ).fetchone()
             except IntegrityError:
                 db.rollback()
                 row = None
