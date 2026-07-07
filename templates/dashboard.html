@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Submission Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+  <h3 class="fw-bold mb-0"><i class="fa-solid fa-chart-pie me-2 text-primary"></i>Dashboard</h3>
+  <div class="d-flex gap-2">
+    <a href="/export/excel" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-file-excel me-1"></i>Export Excel</a>
+    <a href="/export/csv" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-file-csv me-1"></i>Export CSV</a>
+    <a href="/export/pdf?scope=school" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-file-pdf me-1"></i>Export PDF</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-2-4 col-md">
+    <div class="stat-card"><div class="stat-icon bg-primary-subtle text-primary"><i class="fa-solid fa-users"></i></div>
+      <div><div class="stat-value" id="dTotal">0</div><div class="stat-label">Total Students</div></div></div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="stat-card"><div class="stat-icon bg-success-subtle text-success"><i class="fa-solid fa-book"></i></div>
+      <div><div class="stat-value" id="dNbDone">0</div><div class="stat-label">Notebooks Submitted</div></div></div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="stat-card"><div class="stat-icon bg-danger-subtle text-danger"><i class="fa-solid fa-book-skull"></i></div>
+      <div><div class="stat-value" id="dNbPending">0</div><div class="stat-label">Notebooks Pending</div></div></div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="stat-card"><div class="stat-icon bg-info-subtle text-info"><i class="fa-solid fa-diagram-project"></i></div>
+      <div><div class="stat-value" id="dPrDone">0</div><div class="stat-label">Projects Submitted</div></div></div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="stat-card"><div class="stat-icon bg-warning-subtle text-warning"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div><div class="stat-value" id="dPrPending">0</div><div class="stat-label">Projects Pending</div></div></div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card app-card p-3"><h6 class="fw-bold mb-3">Notebook Submitted vs Pending</h6><canvas id="notebookPie"></canvas></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card app-card p-3"><h6 class="fw-bold mb-3">Project Submitted vs Pending</h6><canvas id="projectPie"></canvas></div>
+  </div>
+  <div class="col-md-6">
+    <div class="card app-card p-3"><h6 class="fw-bold mb-3">Completion by Class</h6><canvas id="classBar"></canvas></div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <div class="card app-card p-3"><h6 class="fw-bold mb-3">Completion by Section</h6><canvas id="sectionBar" height="90"></canvas></div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card app-card p-3">
+      <h6 class="fw-bold mb-3">Class-wise Summary</h6>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>Class</th><th>Students</th><th>Notebook %</th><th>Project %</th></tr></thead>
+          <tbody id="classSummaryBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card app-card p-3">
+      <h6 class="fw-bold mb-3">Section-wise Summary</h6>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>Class</th><th>Section</th><th>Students</th><th>Notebook</th><th>Project</th><th>Pending</th></tr></thead>
+          <tbody id="sectionSummaryBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
