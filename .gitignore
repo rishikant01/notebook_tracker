@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+tracker.db
+exports/*.xlsx
+exports/*.csv
+exports/*.pdf
+.env
