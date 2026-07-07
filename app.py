@@ -25,9 +25,9 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 USE_POSTGRES = bool(DATABASE_URL)
 
 if USE_POSTGRES:
-    import psycopg2
-    import psycopg2.extras
-    IntegrityError = psycopg2.IntegrityError
+    import psycopg
+    import psycopg.extras
+    IntegrityError = psycopg.IntegrityError
 else:
     IntegrityError = sqlite3.IntegrityError
 
@@ -56,7 +56,7 @@ SHEETS_TO_IGNORE = {"summary", "index", "readme", "cover"}
 # (execute/executescript/commit/close) regardless of whether the backend is
 # SQLite (local dev) or Postgres (production, e.g. Neon). "?" placeholders
 # are translated to "%s" for Postgres. Rows behave like dicts either way
-# (sqlite3.Row / psycopg2 RealDictCursor), so `row["col"]` and `dict(row)`
+# (sqlite3.Row / psycopg RealDictCursor), so `row["col"]` and `dict(row)`
 # both work unchanged everywhere else in this file.
 # ---------------------------------------------------------------------------
 class DBWrapper:
@@ -66,7 +66,7 @@ class DBWrapper:
     def execute(self, sql, params=()):
         if USE_POSTGRES:
             sql = sql.replace("?", "%s")
-            cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur = self._conn.cursor(cursor_factory=psycopg.extras.RealDictCursor)
             cur.execute(sql, params)
             return cur
         return self._conn.execute(sql, params)
@@ -90,7 +90,7 @@ class DBWrapper:
 
 def _raw_connect():
     if USE_POSTGRES:
-        return psycopg2.connect(DATABASE_URL)
+        return psycopg.connect(DATABASE_URL)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
