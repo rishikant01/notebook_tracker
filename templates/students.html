@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Students - Submission Tracker{% endblock %}
+{% block content %}
+
+<div class="card app-card p-4 mb-4">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label">Class</label>
+      <select id="classSelect" class="form-select"><option value="">Select Class</option></select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Section</label>
+      <select id="sectionSelect" class="form-select" disabled><option value="">Select Section</option></select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Search by Name</label>
+      <input type="text" id="searchName" class="form-control" placeholder="Student name...">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Roll No.</label>
+      <input type="text" id="searchRoll" class="form-control" placeholder="Roll no.">
+    </div>
+    <div class="col-md-1">
+      <button class="btn btn-primary w-100" onclick="loadStudents()"><i class="fa-solid fa-magnifying-glass"></i></button>
+    </div>
+  </div>
+  <div class="mt-3 d-flex flex-wrap gap-2">
+    <button class="btn btn-sm filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+    <button class="btn btn-sm filter-btn" data-filter="pending_notebook" onclick="setFilter('pending_notebook')">Pending Notebook</button>
+    <button class="btn btn-sm filter-btn" data-filter="pending_project" onclick="setFilter('pending_project')">Pending Project</button>
+    <button class="btn btn-sm filter-btn" data-filter="completed" onclick="setFilter('completed')">Completed</button>
+    <button class="btn btn-sm filter-btn" data-filter="pending" onclick="setFilter('pending')">Pending (Any)</button>
+  </div>
+</div>
+
+<div id="summaryCards" class="row g-3 mb-4 d-none">
+  <div class="col-6 col-md-2"><div class="mini-stat"><div class="mini-value" id="sumTotal">0</div><div class="mini-label">Total</div></div></div>
+  <div class="col-6 col-md-2"><div class="mini-stat"><div class="mini-value text-success" id="sumNbDone">0</div><div class="mini-label">Notebook Done</div></div></div>
+  <div class="col-6 col-md-2"><div class="mini-stat"><div class="mini-value text-danger" id="sumNbPending">0</div><div class="mini-label">Notebook Pending</div></div></div>
+  <div class="col-6 col-md-2"><div class="mini-stat"><div class="mini-value text-success" id="sumPrDone">0</div><div class="mini-label">Project Done</div></div></div>
+  <div class="col-6 col-md-2"><div class="mini-stat"><div class="mini-value text-danger" id="sumPrPending">0</div><div class="mini-label">Project Pending</div></div></div>
+  <div class="col-12 col-md-2 d-flex flex-column justify-content-center">
+    <div class="small text-muted mb-1">Notebook <span id="sumNbPct">0%</span></div>
+    <div class="progress mb-2" style="height:6px;"><div class="progress-bar bg-success" id="nbProgressBar" style="width:0%"></div></div>
+    <div class="small text-muted mb-1">Project <span id="sumPrPct">0%</span></div>
+    <div class="progress" style="height:6px;"><div class="progress-bar bg-info" id="prProgressBar" style="width:0%"></div></div>
+  </div>
+</div>
+
+<div id="bulkActions" class="d-none mb-3 d-flex flex-wrap gap-2">
+  <button class="btn btn-sm btn-success" onclick="bulkAction('mark_all_notebook')"><i class="fa-solid fa-check-double me-1"></i>Mark All Notebook</button>
+  <button class="btn btn-sm btn-success" onclick="bulkAction('mark_all_project')"><i class="fa-solid fa-check-double me-1"></i>Mark All Project</button>
+  <button class="btn btn-sm btn-outline-danger" onclick="bulkAction('clear_notebook')">Clear Notebook</button>
+  <button class="btn btn-sm btn-outline-danger" onclick="bulkAction('clear_project')">Clear Project</button>
+  <button class="btn btn-sm btn-outline-dark" onclick="confirmReset()">Reset Section Data</button>
+  <div class="ms-auto d-flex gap-2">
+    <a class="btn btn-sm btn-outline-secondary" id="exportCsvBtn" href="#"><i class="fa-solid fa-file-csv me-1"></i>CSV</a>
+    <a class="btn btn-sm btn-outline-secondary" id="exportPdfBtn" href="#"><i class="fa-solid fa-file-pdf me-1"></i>PDF</a>
+  </div>
+</div>
+
+<div class="card app-card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0" id="studentsTable">
+      <thead>
+        <tr>
+          <th style="width:80px;">Roll No</th>
+          <th>Student Name</th>
+          <th class="text-center" style="width:150px;">Notebook</th>
+          <th class="text-center" style="width:150px;">Project</th>
+          <th class="text-center" style="width:100px;">Status</th>
+        </tr>
+      </thead>
+      <tbody id="studentsBody">
+        <tr><td colspan="5" class="text-center text-muted py-5">Select a class and section to view students.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/students.js') }}"></script>
+{% endblock %}
