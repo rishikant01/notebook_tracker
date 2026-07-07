@@ -43,7 +43,8 @@ This project is ready to deploy as-is. It includes:
 
 - `Procfile` — tells Render to run it with gunicorn
 - `render.yaml` — optional infra-as-code blueprint (see below)
-- `runtime.txt` — pins the Python version
+- `.python-version` — pins the Python version (Render's current method;
+  it no longer reads `runtime.txt`)
 - `requirements.txt` — includes `gunicorn`
 
 ### Option A: Manual setup (Web Service)
@@ -55,7 +56,10 @@ This project is ready to deploy as-is. It includes:
    - **Runtime**: Python 3
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120`
-4. Add an environment variable `FLASK_DEBUG` = `false`.
+4. Add environment variables:
+   - `FLASK_DEBUG` = `false`
+   - `PYTHON_VERSION` = `3.11.9` (Render's most reliable way to pin the
+     Python version — takes precedence over `.python-version`)
 5. Click **Create Web Service**. Render builds and gives you a live URL
    (e.g. `https://notebook-tracker.onrender.com`).
 
