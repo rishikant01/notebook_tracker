@@ -1,6 +1,9 @@
 """
 Student Notebook & Project Submission Tracker
-Flask + SQLite + Pandas/OpenPyXL backend
+Flask backend. Uses SQLite for local development by default, or a real
+Postgres database (e.g. a free Neon instance) when a DATABASE_URL
+environment variable is set -- so data isn't tied to Render's ephemeral
+disk / plan at all, and persists until you explicitly clear it.
 """
 import os
 import re
@@ -18,11 +21,21 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
 
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+USE_POSTGRES = bool(DATABASE_URL)
+
+if USE_POSTGRES:
+    import psycopg2
+    import psycopg2.extras
+    IntegrityError = psycopg2.IntegrityError
+else:
+    IntegrityError = sqlite3.IntegrityError
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # DATA_DIR can be pointed at a Render persistent disk mount (e.g. /var/data)
-# via the DATA_DIR env var, so the database and files survive deploys/restarts.
-# Defaults to the project folder for local development.
+# for the SQLite file, and is always used for uploads/exports regardless of
+# which database backend is active. Defaults to the project folder locally.
 DATA_DIR = os.environ.get("DATA_DIR", BASE_DIR)
 DB_PATH = os.path.join(DATA_DIR, "tracker.db")
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
@@ -38,12 +51,55 @@ SHEETS_TO_IGNORE = {"summary", "index", "readme", "cover"}
 
 # ---------------------------------------------------------------------------
 # Database helpers
+#
+# A thin wrapper gives the rest of the app one uniform API
+# (execute/executescript/commit/close) regardless of whether the backend is
+# SQLite (local dev) or Postgres (production, e.g. Neon). "?" placeholders
+# are translated to "%s" for Postgres. Rows behave like dicts either way
+# (sqlite3.Row / psycopg2 RealDictCursor), so `row["col"]` and `dict(row)`
+# both work unchanged everywhere else in this file.
 # ---------------------------------------------------------------------------
+class DBWrapper:
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, sql, params=()):
+        if USE_POSTGRES:
+            sql = sql.replace("?", "%s")
+            cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(sql, params)
+            return cur
+        return self._conn.execute(sql, params)
+
+    def executescript(self, script):
+        if USE_POSTGRES:
+            cur = self._conn.cursor()
+            cur.execute(script)
+        else:
+            self._conn.executescript(script)
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
+
+
+def _raw_connect():
+    if USE_POSTGRES:
+        return psycopg2.connect(DATABASE_URL)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON")
+        g.db = DBWrapper(_raw_connect())
     return g.db
 
 
@@ -55,27 +111,49 @@ def close_db(exception=None):
 
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS students (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            class_name TEXT NOT NULL,
-            section TEXT NOT NULL,
-            roll_no INTEGER,
-            name TEXT NOT NULL,
-            notebook INTEGER DEFAULT 0,
-            project INTEGER DEFAULT 0,
-            updated_at TEXT,
-            UNIQUE(class_name, section, roll_no, name)
-        );
+    conn = DBWrapper(_raw_connect())
+    if USE_POSTGRES:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS students (
+                id SERIAL PRIMARY KEY,
+                class_name TEXT NOT NULL,
+                section TEXT NOT NULL,
+                roll_no INTEGER,
+                name TEXT NOT NULL,
+                notebook INTEGER DEFAULT 0,
+                project INTEGER DEFAULT 0,
+                updated_at TEXT,
+                UNIQUE(class_name, section, roll_no, name)
+            );
 
-        CREATE TABLE IF NOT EXISTS meta (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        );
-        """
-    )
+            CREATE TABLE IF NOT EXISTS meta (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            );
+            """
+        )
+    else:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS students (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                class_name TEXT NOT NULL,
+                section TEXT NOT NULL,
+                roll_no INTEGER,
+                name TEXT NOT NULL,
+                notebook INTEGER DEFAULT 0,
+                project INTEGER DEFAULT 0,
+                updated_at TEXT,
+                UNIQUE(class_name, section, roll_no, name)
+            );
+
+            CREATE TABLE IF NOT EXISTS meta (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            );
+            """
+        )
     conn.commit()
     conn.close()
 
@@ -192,13 +270,20 @@ def import_workbook(filepath):
                 auto_roll = roll_no
 
             try:
-                db.execute(
+                row = db.execute(
                     "INSERT INTO students (class_name, section, roll_no, name, "
-                    "notebook, project, updated_at) VALUES (?, ?, ?, ?, 0, 0, ?)",
+                    "notebook, project, updated_at) VALUES (?, ?, ?, ?, 0, 0, ?) "
+                    "ON CONFLICT (class_name, section, roll_no, name) DO NOTHING "
+                    "RETURNING id",
                     (class_name, section, roll_no, name_val, datetime.now().isoformat()),
-                )
+                ).fetchone()
+            except IntegrityError:
+                db.rollback()
+                row = None
+
+            if row is not None:
                 students_added += 1
-            except sqlite3.IntegrityError:
+            else:
                 students_skipped_dupe += 1
 
     db.commit()
