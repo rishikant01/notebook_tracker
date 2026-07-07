@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Home - Submission Tracker{% endblock %}
+{% block content %}
+
+<div class="row g-4 mb-4">
+  <div class="col-12">
+    <div class="hero-card p-4 p-md-5">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+          <h2 class="fw-bold mb-1" id="schoolName">Loading...</h2>
+          <p class="mb-0 opacity-75"><i class="fa-regular fa-calendar me-1"></i> Session: <span id="academicSession">-</span></p>
+          <p class="mb-0 opacity-75"><i class="fa-regular fa-clock me-1"></i> Last Import: <span id="lastImport">-</span></p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <a href="/dashboard" class="btn btn-light btn-lg"><i class="fa-solid fa-chart-pie me-2"></i>Dashboard</a>
+          <button class="btn btn-outline-light btn-lg" data-bs-toggle="modal" data-bs-target="#uploadModal">
+            <i class="fa-solid fa-file-arrow-up me-2"></i>Import / Replace Excel
+          </button>
+          <button class="btn btn-outline-light btn-lg" data-bs-toggle="modal" data-bs-target="#settingsModal">
+            <i class="fa-solid fa-gear me-2"></i>Settings
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon bg-primary-subtle text-primary"><i class="fa-solid fa-users"></i></div>
+      <div><div class="stat-value" id="totalStudents">0</div><div class="stat-label">Total Students</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon bg-success-subtle text-success"><i class="fa-solid fa-book"></i></div>
+      <div><div class="stat-value" id="notebookDone">0</div><div class="stat-label">Notebooks Submitted</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon bg-info-subtle text-info"><i class="fa-solid fa-diagram-project"></i></div>
+      <div><div class="stat-value" id="projectDone">0</div><div class="stat-label">Projects Submitted</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon bg-warning-subtle text-warning"><i class="fa-solid fa-hourglass-half"></i></div>
+      <div><div class="stat-value" id="totalPending">0</div><div class="stat-label">Items Pending</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-7">
+    <div class="card app-card p-4 mb-4">
+      <h5 class="fw-bold mb-3"><i class="fa-solid fa-list-check me-2 text-primary"></i>Select Class & Section</h5>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-5">
+          <label class="form-label">Class</label>
+          <select id="classSelect" class="form-select form-select-lg"><option value="">Select Class</option></select>
+        </div>
+        <div class="col-md-5">
+          <label class="form-label">Section</label>
+          <select id="sectionSelect" class="form-select form-select-lg" disabled><option value="">Select Section</option></select>
+        </div>
+        <div class="col-md-2">
+          <button id="loadStudentsBtn" class="btn btn-primary btn-lg w-100" disabled onclick="goToStudents()">
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+      <p class="text-muted small mt-3 mb-0">Choose a class and section, then click the arrow to open the student list.</p>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card app-card p-4 mb-4">
+      <h5 class="fw-bold mb-3"><i class="fa-solid fa-bolt me-2 text-primary"></i>Quick Links</h5>
+      <div class="d-grid gap-2">
+        <a href="/students-page" class="btn btn-outline-primary"><i class="fa-solid fa-users me-2"></i>Manage Students</a>
+        <a href="/dashboard" class="btn btn-outline-primary"><i class="fa-solid fa-chart-pie me-2"></i>View Full Dashboard</a>
+        <a href="/export/excel" class="btn btn-outline-secondary"><i class="fa-solid fa-file-excel me-2"></i>Export Full Excel Report</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-file-arrow-up me-2"></i>Import / Replace Excel Workbook</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">Upload a single .xlsx workbook. Each sheet name should be in the format <code>Class - Section</code> (e.g. "VI - Ravi"). All sheets will be imported automatically.</p>
+        <input type="file" id="excelFile" accept=".xlsx,.xlsm" class="form-control mb-3">
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="replaceCheck">
+          <label class="form-check-label" for="replaceCheck">Replace existing data (clears all current records first)</label>
+        </div>
+        <div id="importProgress" class="d-none">
+          <div class="spinner-border spinner-border-sm text-primary me-2"></div> Importing, please wait...
+        </div>
+        <div id="importResult"></div>
+      </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal fade" id="settingsModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-gear me-2"></i>School Settings</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">School Name</label>
+          <input type="text" id="settingsSchoolName" class="form-control" placeholder="e.g. Springfield Public School">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Academic Session</label>
+          <input type="text" id="settingsSession" class="form-control" placeholder="e.g. 2025-26">
+        </div>
+        <div id="settingsResult"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="saveSettingsBtn"><i class="fa-solid fa-floppy-disk me-1"></i>Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/home.js') }}"></script>
+{% endblock %}
